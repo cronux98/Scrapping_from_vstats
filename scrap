@@ -1,0 +1,192 @@
+import requests
+from bs4 import BeautifulSoup
+import re
+import datetime
+
+Hololive = 0
+Nijisanji = 0
+VSPO = 0
+Indie = 0
+Hololive_gold = 0
+Nijisanji_gold = 0
+VSPO_gold = 0
+Indie_gold = 0
+ccv_gold = 0
+company_gold = ""
+
+
+def scrape_website(url):
+
+    response = requests.get(url)
+
+    # Check if the request was successful
+    if response.status_code != 200:
+        print("Failed to retrieve the webpage.")
+        return
+
+    # Parse the content with BeautifulSoup
+    soup = BeautifulSoup(response.content, 'html.parser')
+
+    if not in_range:
+        print("\n*FINAL TALLY*")
+
+    for item in range(3, 50):
+        target_title = soup.select_one(
+            f'body > main > div.content.mt-3 > div > div:nth-child({item}) > div.flex-grow-1 > div > div:nth-child(2) '
+            f'> div.d-flex.flex-column.justify-content-between.h-100 > div.text-truncate.text-channel-title > a')
+        target_ccv = soup.select_one(
+            f'body > main > div.content.mt-3 > div > div:nth-child({item}) > div.div-stats.d-flex.flex-column.justify'
+            f'-content-center.p-0.h-100 > div.d-flex.align-items-center.w-100 > '
+            f'div.flex-grow-1.ms-1.align-middle.text-nowrap > div.text-center > span > span')
+        target_company = soup.select_one(
+            f'body > main > div.content.mt-3 > div > div:nth-child({item}) > div.div-stats.d-flex.flex-column.justify'
+            f'-content-center.p-0.h-100 > div.d-flex.flex-row.justify-content-start.align-items-middle > div > '
+            f'div.badge.div-badge.rounded-pill.bg-primary.align-items-middle.text-truncate > a > span')
+        if target_title or target_ccv:
+            company = tally_podium(target_company.text.strip().lower(), target_ccv.text.strip().replace(',', ''))
+            filtered_title = re.findall(r'[A-Za-z\s\.\-\,]+', target_title.text.strip().lower().split("ch.")[0])
+            filtered_title_result = ''.join(filtered_title).strip().capitalize().split("nijisanji")[0]  # Capitalize the result if needed
+            title_and_ccv = ">" + target_ccv.text.strip() + ": " + filtered_title_result + " (" + company + ")"
+            if not in_range:
+                print(title_and_ccv)
+        else:
+            continue
+
+    if not in_range:
+        print(f"\nHololive: {Hololive}\nNijisanji: {Nijisanji}\nVSPO: {VSPO}\nIndie:{Indie}")
+
+
+def gold(company_gold):
+    global Hololive_gold, Nijisanji_gold, VSPO_gold, Indie_gold
+    if any(sub in company_gold for sub in ('hololive', 'holo', 'ホロライブ')):
+        print(f"\nGold of the day: Hololive")
+        Hololive_gold += 1
+    elif any(sub in company_gold for sub in ('nijisanji', 'niji', 'にじさんじ')):
+        print(f"\nGold of the day: Nijisanji")
+        Nijisanji_gold += 1
+    elif any(sub in company_gold for sub in ('ぶいすぽっ')):
+        print(f"\nGold of the day: VSPO")
+        VSPO_gold += 1
+    elif any(sub in company_gold for sub in ('個人')):
+        print(f"\nGold of the day: Indie")
+        Indie_gold += 1
+    else:
+        print("Needs Attention!")
+
+
+def tally_podium(company_text, ccv):
+    global Hololive, Nijisanji, VSPO, Indie, company, ccv_gold,company_gold
+    if int(ccv_gold) < int(ccv):
+        ccv_gold = ccv
+        company_gold = company_text
+    if any(sub in company_text for sub in ('hololive', 'holo', 'ホロライブ')):
+        company = 'Hololive'
+        if int(ccv) >= 10000:  # Replacing commas to correctly convert to int
+            Hololive += 1
+    elif any(sub in company_text for sub in ('nijisanji', 'niji', 'にじさんじ')):
+        company = 'Nijisanji'
+        if int(ccv) >= 10000:
+            Nijisanji += 1
+    elif any(sub in company_text for sub in ('ぶいすぽっ')):
+        company = 'VSPO'
+        if int(ccv) >= 10000:
+            VSPO += 1
+    elif any(sub in company_text for sub in ('個人')):
+        company = 'Indie'
+        if int(ccv) >= 10000:
+            Indie += 1
+    else:
+        company = 'Needs attention!'
+
+    return company
+
+
+def get_date_range(start_date, end_date):
+    """Generate a range of dates from start_date to end_date."""
+    delta = datetime.timedelta(days=1)
+    while start_date <= end_date:
+        yield start_date
+        start_date += delta
+
+
+def range_mode():
+    global Hololive, Nijisanji, VSPO, Indie, Hololive_gold, Nijisanji_gold, VSPO_gold, Indie_gold, ccv_gold,company_gold
+    while True:
+        start_date_input = input(
+            "\nPlease input the start date in the format 'YYYY-MM-DD'. If it is today, then put 'today'.\n> ")
+        end_date_input = input(
+            "Please input the end date in the format 'YYYY-MM-DD'. If it is today, then put 'today'.\n> ")
+
+        # Convert 'today' to actual date or use the provided date.
+        start_date = datetime.date.today() if start_date_input.lower() == 'today' else datetime.datetime.strptime(
+            start_date_input, '%Y-%m-%d').date()
+        end_date = datetime.date.today() if end_date_input.lower() == 'today' else datetime.datetime.strptime(
+            end_date_input, '%Y-%m-%d').date()
+
+        if start_date <= end_date:
+            break
+        else:
+            print("\nThe start date should be before or equal to the end date. Please enter the dates again.")
+
+    for date in get_date_range(start_date, end_date):
+        ccv_gold = 0
+        company_gold = ""
+        print(f"\nScraping data for: {date}")
+        url = f'https://www.vstats.jp/leaderboard/{date}'
+        scrape_website(url)
+        gold(company_gold)
+
+    print(f"\nNumber of 10ks from {start_date_input} to {end_date_input}:"
+          f"\n\nHololive: {Hololive}\nNijisanji: {Nijisanji}\nVSPO: {VSPO}\nIndie: {Indie}")
+    print(f"\nNumber of Golds from {start_date_input} to {end_date_input}:"
+          f"\n\nHololive: {Hololive_gold}\nNijisanji: {Nijisanji_gold}\nVSPO: {VSPO_gold}\nIndie: {Indie_gold}")
+
+
+def ending():
+    while True:
+        choice_ending = input("\nDo you wish to continue? (Yes/No)\n> ")
+        if choice_ending.lower() == 'no':
+            return True
+        elif choice_ending.lower() == 'yes':
+            return False
+        else:
+            print("Please input only yes or no!")
+
+
+if __name__ == "__main__":
+    while True:
+        print("""
+        Welcome to the vtuber's tally counter! Please choose from the menu.
+        1. Today's current tally
+        2. Other's tally date
+        3. Numbers of 10ks within a range
+        4. Exit
+        """)
+
+        choice = int(input("> "))
+
+        if choice == 1:
+            in_range = False
+            date = datetime.date.today().strftime('%Y-%m-%d')
+            print("\n" + date)
+            url = f'https://www.vstats.jp/leaderboard/{date}'
+            scrape_website(url)
+            if ending():
+                break
+        elif choice == 2:
+            in_range = False
+            date_input = input("\nPlease input the date in the format 'YYYY-MM-DD'\n> ")
+            date = date_input
+            print("\n" + date)
+            url = f'https://www.vstats.jp/leaderboard/{date}'
+            scrape_website(url)
+            if ending():
+                break
+        elif choice == 3:
+            in_range = True
+            range_mode()
+            if ending():
+                break
+        elif choice == 4:
+            print("You have exited! Thank you for using our services")
+            break
